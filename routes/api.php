@@ -10,6 +10,11 @@ use App\Http\Controllers\Api\V1\RikesAttendanceController;
 use App\Http\Controllers\Api\V1\SecurityMetricController;
 use App\Http\Controllers\Api\V1\IncidentCategoryController;
 use App\Http\Controllers\Api\V1\VisitorRequestController;
+use App\Http\Controllers\Api\V1\SecurityKeyMetricController;
+use App\Http\Controllers\Api\V1\RikesNapzaController;
+use App\Http\Controllers\Api\V1\RikesPradinasController;
+
+
 
 Route::prefix('v1')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -55,7 +60,6 @@ Route::prefix('v1')->group(function () {
 
 
         // Nafza
-
         Route::get('medical-reports', [MedicalReportController::class, 'index'])
         ->middleware('permission:medical_reports.read');
 
@@ -79,6 +83,31 @@ Route::prefix('v1')->group(function () {
 
         Route::get('medical-reports/range', [MedicalReportController::class, 'range'])
             ->middleware('permission:medical_reports.read');
+                // v2
+                Route::prefix('rikes-napza')->group(function () {
+                    Route::get('/', [RikesNapzaController::class, 'index'])->middleware('permission:medical_reports.read');
+                    Route::post('/', [RikesNapzaController::class, 'store'])->middleware('permission:medical_reports.create');
+                    Route::get('/{rikesNapza}', [RikesNapzaController::class, 'show'])->middleware('permission:medical_reports.read');
+                    Route::put('/{rikesNapza}', [RikesNapzaController::class, 'update'])->middleware('permission:medical_reports.update');
+                    Route::delete('/{rikesNapza}', [RikesNapzaController::class, 'destroy'])->middleware('permission:medical_reports.delete');
+
+                    // analytics filter
+                    Route::get('/filter/month', [RikesNapzaController::class, 'filterByMonth'])->middleware('permission:medical_reports.read');
+                    Route::get('/filter/year', [RikesNapzaController::class, 'filterByYear'])->middleware('permission:medical_reports.read');
+                });
+
+                // Pradinas
+                Route::prefix('rikes-pradinas')->group(function () {
+                    Route::get('/', [RikesPradinasController::class, 'index'])->middleware('permission:medical_reports.read');              
+                    Route::post('/', [RikesPradinasController::class, 'store'])->middleware('permission:medical_reports.create');             
+                    Route::get('/{rikesPradinas}', [RikesPradinasController::class, 'show'])->middleware('permission:medical_reports.read'); 
+                    Route::put('/{rikesPradinas}', [RikesPradinasController::class, 'update'])->middleware('permission:medical_reports.update');
+                    Route::delete('/{rikesPradinas}', [RikesPradinasController::class, 'destroy'])->middleware('permission:medical_reports.delete');
+
+                    // filter by bulan & tahun
+                    Route::get('/filter/month', [RikesPradinasController::class, 'filterByMonth'])->middleware('permission:medical_reports.read');;
+                    Route::get('/filter/year', [RikesPradinasController::class, 'filterByYear'])->middleware('permission:medical_reports.read');
+                });
             
 
         // Rikes Attendance
@@ -118,6 +147,23 @@ Route::prefix('v1')->group(function () {
 
         Route::post('security-metrics/{securityMetric}/reject', [SecurityMetricController::class, 'reject'])
             ->middleware('permission:security_metrics.update'); 
+
+        // Metrik v2 security
+        Route::get('security-metrics-v2', [SecurityKeyMetricController::class, 'index'])
+            ->middleware('permission:security_metrics.read');
+
+        Route::post('security-metrics-v2', [SecurityKeyMetricController::class, 'store'])
+            ->middleware('permission:security_metrics.create');
+
+        Route::put('security-metrics-v2/{securityKeyMetric}', [SecurityKeyMetricController::class, 'update'])
+            ->middleware('permission:security_metrics.update');
+
+        Route::delete('security-metrics-v2/{securityKeyMetric}', [SecurityKeyMetricController::class, 'destroy'])
+            ->middleware('permission:security_metrics.delete');
+
+        // Route tambahan untuk analytics
+        Route::get('security-metrics-v2-analytics', [SecurityKeyMetricController::class, 'analyticsMonthly'])
+            ->middleware('permission:security_metrics.read');
 
 
         // Incident Categori

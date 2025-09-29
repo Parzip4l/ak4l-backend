@@ -114,30 +114,45 @@ class SafetyMetricController extends Controller
         $metrics = SafetyMetric::where('month', 'like', "$year-%")->get();
 
         $months = [
-            'Jan'=>1,'Feb'=>2,'Mar'=>3,'Apr'=>4,'May'=>5,'Jun'=>6,
-            'Jul'=>7,'Aug'=>8,'Sep'=>9,'Oct'=>10,'Nov'=>11,'Dec'=>12
+            'Jan' => 1, 'Feb' => 2, 'Mar' => 3, 'Apr' => 4, 'May' => 5, 'Jun' => 6,
+            'Jul' => 7, 'Aug' => 8, 'Sep' => 9, 'Oct' => 10, 'Nov' => 11, 'Dec' => 12
         ];
 
         $result = [];
 
         foreach ($months as $name => $monthNumber) {
-            $monthStr = sprintf("%04d-%02d", $year, $monthNumber); // "2025-09"
+            $monthStr = sprintf("%04d-%02d", $year, $monthNumber);
 
-            $monthData = $metrics->where('month', $monthStr);
+            $monthData = $metrics->where('month', $monthStr)->first();
 
-            $totalIncidents = $monthData->sum(function($item){
-                return $item->fatality 
-                    + $item->lost_time_injuries 
-                    + $item->illness 
-                    + $item->medical_treatment_cases
-                    + $item->first_aid_cases
-                    + $item->property_damage;
-            });
+            if ($monthData) {
+                // Menggunakan data dari kolom `fr`, `sr`, dan `far` yang sudah ada
+                $fr = (float) $monthData->fr;
+                $sr = (float) $monthData->sr;
+                $far = (float) $monthData->far;
 
-            $totalNearMiss = $monthData->sum('near_miss');
+                $totalIncidents = $monthData->fatality 
+                    + $monthData->lost_time_injuries 
+                    + $monthData->illness 
+                    + $monthData->medical_treatment_cases
+                    + $monthData->first_aid_cases
+                    + $monthData->property_damage;
+                
+                $totalNearMiss = $monthData->near_miss;
+            } else {
+                // Jika tidak ada data untuk bulan tersebut, berikan nilai default
+                $fr = 0.0;
+                $sr = 0.0;
+                $far = 0.0;
+                $totalIncidents = 0;
+                $totalNearMiss = 0;
+            }
 
             $result[] = [
                 'name' => $name,
+                'fr' => $fr,
+                'sr' => $sr,
+                'far' => $far,
                 'incidents' => $totalIncidents,
                 'nearMiss' => $totalNearMiss,
             ];

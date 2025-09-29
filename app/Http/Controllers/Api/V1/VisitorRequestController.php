@@ -123,15 +123,25 @@ class VisitorRequestController extends Controller
     {
         $year = $request->query('year', date('Y'));
 
-        $summary = VisitorRequest::selectRaw('MONTH(visit_date) as month, COUNT(*) as total')
+        $summary = VisitorRequest::selectRaw('
+                MONTH(visit_date) as month,
+                COUNT(*) as total,
+                SUM(CASE WHEN status IN ("approved","completed") THEN 1 ELSE 0 END) as approved_completed_count
+            ')
             ->whereYear('visit_date', $year)
             ->groupByRaw('MONTH(visit_date)')
             ->orderByRaw('MONTH(visit_date)')
             ->get()
             ->map(function ($row) {
+                $approvalRate = $row->total > 0 
+                    ? round(($row->approved_completed_count / $row->total) * 100, 2) 
+                    : 0;
+
                 return [
                     'month' => $row->month,
                     'total' => $row->total,
+                    'approved_completed_count' => $row->approved_completed_count,
+                    'approval_rate' => $approvalRate, // persentase approved/completed
                 ];
             });
 
@@ -140,6 +150,7 @@ class VisitorRequestController extends Controller
             'data' => $summary,
         ]);
     }
+
 
     public function topHosts(Request $request)
     {

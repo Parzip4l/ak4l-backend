@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('medical_reports', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ['rikes', 'napza']);
+            $table->enum('type', ['laporan_kegiatan', 'absensi_kehadiran', 'penggunaan_obat','limbah']);
             $table->date('date');
             $table->string('file_path'); 
             $table->foreignId('uploaded_by')->constrained('users')->cascadeOnDelete();
