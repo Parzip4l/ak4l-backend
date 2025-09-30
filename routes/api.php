@@ -13,8 +13,14 @@ use App\Http\Controllers\Api\V1\VisitorRequestController;
 use App\Http\Controllers\Api\V1\SecurityKeyMetricController;
 use App\Http\Controllers\Api\V1\RikesNapzaController;
 use App\Http\Controllers\Api\V1\RikesPradinasController;
-
-
+use App\Http\Controllers\Api\V1\MedicalOnsiteReportController;
+use App\Http\Controllers\Api\V1\BUJPReportController;
+use App\Http\Controllers\Api\V1\Security\{
+    SkillController,
+    PersonnelController,
+    PersonnelSkillController,
+    JobPositionController
+};
 
 Route::prefix('v1')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -25,8 +31,21 @@ Route::prefix('v1')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
 
         // Permission and Roles
-        Route::get('roles', [RolePermissionController::class, 'roles']);
-        Route::get('permissions', [RolePermissionController::class, 'permissions']);
+            // Role
+            Route::get('roles', [RolePermissionController::class, 'roles']);
+            Route::post('roles', [RolePermissionController::class, 'storeRole']);
+            Route::put('roles/{id}', [RolePermissionController::class, 'updateRole']);
+            Route::delete('roles/{id}', [RolePermissionController::class, 'destroyRole']);
+
+            // Permission
+            Route::get('permissions', [RolePermissionController::class, 'permissions']);
+            Route::post('permissions', [RolePermissionController::class, 'storePermission']);
+            Route::put('permissions/{id}', [RolePermissionController::class, 'updatePermission']);
+            Route::delete('permissions/{id}', [RolePermissionController::class, 'destroyPermission']);
+
+            // Assign / Revoke Permission ke Role
+            Route::post('roles/{roleId}/assign-permissions', [RolePermissionController::class, 'assignPermissionToRole']);
+            Route::post('roles/{roleId}/revoke-permissions', [RolePermissionController::class, 'revokePermissionFromRole']);
 
         Route::post('users/{id}/roles/assign', [UserRoleController::class, 'assignRole']);
         Route::post('users/{id}/roles/revoke', [UserRoleController::class, 'revokeRole']);
@@ -108,7 +127,56 @@ Route::prefix('v1')->group(function () {
                     Route::get('/filter/month', [RikesPradinasController::class, 'filterByMonth'])->middleware('permission:medical_reports.read');;
                     Route::get('/filter/year', [RikesPradinasController::class, 'filterByYear'])->middleware('permission:medical_reports.read');
                 });
+
+                // Medical Report Onsite
+                Route::prefix('medical-reports-onsite')->group(function () {
+                    Route::get('/', [MedicalOnsiteReportController::class, 'index'])
+                        ->middleware('permission:medical_reports.read');
+
+                    // letakkan di atas
+                    Route::get('/filter', [MedicalOnsiteReportController::class, 'filterData'])
+                        ->middleware('permission:medical_reports.read');
+
+                    Route::get('/recap', [MedicalOnsiteReportController::class, 'recap'])
+                        ->middleware('permission:medical_reports.read');
+
+                    Route::get('/monthly-trend', [MedicalOnsiteReportController::class, 'monthlyTrend'])
+                        ->middleware('permission:medical_reports.read');
+
+                    // detail pakai ID
+                    Route::get('/{report}', [MedicalOnsiteReportController::class, 'show'])
+                        ->middleware('permission:medical_reports.read');
+
+                    Route::post('/', [MedicalOnsiteReportController::class, 'store'])
+                        ->middleware('permission:medical_reports.create');
+
+                    Route::put('/{report}', [MedicalOnsiteReportController::class, 'update'])
+                        ->middleware('permission:medical_reports.update');
+
+                    Route::delete('/{report}', [MedicalOnsiteReportController::class, 'destroy'])
+                        ->middleware('permission:medical_reports.delete');
+
+                    Route::get('/{report}/logs', [MedicalOnsiteReportController::class, 'approvalLogs'])
+                        ->middleware('permission:medical_reports.read');
+
+                    Route::post('/{report}/approve', [MedicalOnsiteReportController::class, 'approve'])
+                        ->middleware('permission:medical_reports.approve');
+                });
+
+
+        // BUJP
+        Route::prefix('bujp-reports')->group(function () {
+            Route::get('/', [BUJPReportController::class, 'index'])->middleware('permission:security_metrics.read');
+            Route::post('/', [BUJPReportController::class, 'store'])->middleware('permission:security_metrics.create');
+            Route::get('/filter', [BUJPReportController::class, 'filter'])
+                    ->middleware('permission:security_metrics.read');
+            Route::post('{bujpReport}/approve', [BUJPReportController::class, 'approve'])->middleware('permission:security_metrics.create');
+            Route::post('{bujpReport}/reject', [BUJPReportController::class, 'reject'])->middleware('permission:security_metrics.create');
+            Route::get('{bujpReport}', [BUJPReportController::class, 'show'])->middleware('permission:security_metrics.read');
+            Route::get('{bujpReport}/logs', [BUJPReportController::class, 'approvalLogs'])->middleware('permission:security_metrics.read');
+            Route::get('{bujpReport}/download', [BUJPReportController::class, 'download'])->middleware('permission:security_metrics.read');
             
+        });
 
         // Rikes Attendance
         Route::get('rikes-attendances', [RikesAttendanceController::class, 'index'])
@@ -207,6 +275,87 @@ Route::prefix('v1')->group(function () {
         
         Route::post('visitor-requests/{visitorRequest}/complete', [VisitorRequestController::class, 'complete'])
             ->middleware('permission:visitor_requests.approve');
+
+
+        // Security Routes
+
+        Route::prefix('skills')->group(function () {
+            Route::get('/', [SkillController::class, 'index'])
+                ->middleware('permission:security_metrics.read');
+            Route::post('/', [SkillController::class, 'store'])
+                ->middleware('permission:security_metrics.create');
+            Route::get('/{id}', [SkillController::class, 'show'])
+                ->middleware('permission:security_metrics.read');
+            Route::put('/{id}', [SkillController::class, 'update'])
+                ->middleware('permission:security_metrics.update');
+            Route::delete('/{id}', [SkillController::class, 'destroy'])
+                ->middleware('permission:security_metrics.delete');
+                
+        });
+
+        // Job Position
+        Route::prefix('job-positions')->group(function () {
+            Route::get('/', [JobPositionController::class, 'index'])
+                ->middleware('permission:security_metrics.read');
+            Route::post('/', [JobPositionController::class, 'store'])
+                ->middleware('permission:security_metrics.create');
+            Route::get('/{id}', [JobPositionController::class, 'show'])
+                ->middleware('permission:security_metrics.read');
+            Route::put('/{id}', [JobPositionController::class, 'update'])
+                ->middleware('permission:security_metrics.update');
+            Route::delete('/{id}', [JobPositionController::class, 'destroy'])
+                ->middleware('permission:security_metrics.delete');
+        });
+
+        // ==========================
+        //  PERSONNEL ROUTES
+        // ==========================
+        Route::prefix('personnels')->group(function () {
+            Route::get('/', [PersonnelController::class, 'index'])
+                ->middleware('permission:security_metrics.read');
+            Route::post('/', [PersonnelController::class, 'store'])
+                ->middleware('permission:security_metrics.create');
+            Route::get('/analytics', [PersonnelController::class, 'analytics'])
+                ->middleware('permission:security_metrics.read');
+            Route::get('/{id}', [PersonnelController::class, 'show'])
+                ->middleware('permission:security_metrics.read');
+            Route::put('/{id}', [PersonnelController::class, 'update'])
+                ->middleware('permission:security_metrics.update');
+            Route::delete('/{id}', [PersonnelController::class, 'destroy'])
+                ->middleware('permission:security_metrics.delete');
+           
+        });
+
+        // ==========================
+        //  PERSONNEL SKILL ROUTES
+        // ==========================
+        Route::prefix('personnel-skills')->group(function () {
+            // List with filters (month, year, status)
+            Route::get('/', [PersonnelSkillController::class, 'index'])
+                ->middleware('permission:security_metrics.read');
+
+            // Assign skill ke personnel
+            Route::post('/', [PersonnelSkillController::class, 'store'])
+                ->middleware('permission:security_metrics.create');
+
+            // Detail + logs
+            Route::get('/{id}', [PersonnelSkillController::class, 'show'])
+                ->middleware('permission:security_metrics.read');
+
+            // Approve / Reject
+            Route::post('/{id}/status', [PersonnelSkillController::class, 'updateStatus'])
+                ->middleware('permission:security_metrics.approve');
+
+            // Analytics (approved vs pending)
+            Route::get('/analytics', [PersonnelSkillController::class, 'analytics'])
+                ->middleware('permission:security_metrics.read');
+
+            // Download file (certificate or membership_card)
+            Route::get('/{id}/download/{type}', [PersonnelSkillController::class, 'downloadFile'])
+                ->middleware('permission:security_metrics.read');
+        });
+        
+        Route::get('/reports/pending', [\App\Http\Controllers\Api\V1\ReportSummaryController::class, 'pending']);
 
     });
 });

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class PersonnelSkill extends Model
 {
     use HasFactory;
+    
 
     protected $fillable = [
         'personnel_id',
@@ -15,7 +16,13 @@ class PersonnelSkill extends Model
         'certificate',
         'member_card',
         'certificate_file',
-        'member_card_file'
+        'member_card_file',
+        'valid_until',
+        'status'
+    ];
+
+    protected $casts = [
+        'valid_until' => 'date',
     ];
 
     public function skill()
@@ -26,5 +33,10 @@ class PersonnelSkill extends Model
     public function personnel()
     {
         return $this->belongsTo(Personnel::class);
+    }
+
+    public function logs()
+    {
+        return $this->belongsTo(PersonnelSkillLog::class);
     }
 }
