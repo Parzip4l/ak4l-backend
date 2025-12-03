@@ -76,6 +76,14 @@ return [
         // ],
     ],
 
+    'ldap' => [
+        'hosts' => [env('LDAP_HOST')],
+        'base_dn' => env('LDAP_BASE_DN'),
+        'port' => env('LDAP_PORT', 389),
+        'use_ssl' => env('LDAP_SSL', false),
+        'use_tls' => env('LDAP_TLS', false),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Resetting Passwords
