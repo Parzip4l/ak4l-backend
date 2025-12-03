@@ -64,7 +64,7 @@ class AuthController extends Controller
 
         try {
             $connection = new \LdapRecord\Connection([
-                'hosts'    => ["10.172.0.12"],
+                'hosts'    => config('ldap.connections.default.hosts'),
                 'base_dn'  => env('LDAP_BASE_DN'),
                 'username' => null,
                 'password' => null,
