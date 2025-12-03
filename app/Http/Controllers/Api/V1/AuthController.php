@@ -39,7 +39,7 @@ class AuthController extends Controller
 
         $email = $request->email;
         $password = $request->password;
-        $upn = $email;
+        $upn = $email; // untuk login LDAP via UPN (misal: user@domain.local)
 
         /*
         |--------------------------------------------------------------------------
@@ -64,11 +64,11 @@ class AuthController extends Controller
 
         try {
             $connection = new \LdapRecord\Connection([
-                'hosts'    => config('ldap.connections.default.hosts'),
-                'base_dn'  => config('ldap.connections.default.base_dn'),
-                'username' => config('ldap.connections.default.username'),
-                'password' => config('ldap.connections.default.password'),
-                'port'     => config('ldap.connections.default.port', 389),
+                'hosts'    => ["10.172.0.12"],
+                'base_dn'  => env('LDAP_BASE_DN'),
+                'username' => null,
+                'password' => null,
+                'port'     => env('LDAP_PORT', 389),
                 'use_ssl'  => env('LDAP_SSL', false),
                 'use_tls'  => env('LDAP_TLS', false),
             ]);
