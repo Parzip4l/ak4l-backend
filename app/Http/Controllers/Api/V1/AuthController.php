@@ -56,12 +56,21 @@ class AuthController extends Controller
         */
         try {
             // SETUP KONEKSI (Gunakan config(), JANGAN env())
-            $connection = new Connection([
+            $connection = new \LdapRecord\Connection([
                 'hosts'    => config('ldap.connections.default.hosts'),
                 'base_dn'  => config('ldap.connections.default.base_dn'),
-                'username' => config('ldap.connections.default.username'), // User Admin utk searching
-                'password' => config('ldap.connections.default.password'), // Pass Admin utk searching
+                'username' => config('ldap.connections.default.username'),
+                'password' => config('ldap.connections.default.password'),
                 'port'     => config('ldap.connections.default.port', 389),
+                
+                // --- TAMBAHKAN BAGIAN INI (WAJIB UTK ACTIVE DIRECTORY) ---
+                'options' => [
+                    // Matikan Referrals agar tidak error "Operations error"
+                    LDAP_OPT_REFERRALS => false, 
+                    // Paksa gunakan protokol versi 3 (standar modern)
+                    LDAP_OPT_PROTOCOL_VERSION => 3,
+                ]
+                // ---------------------------------------------------------
             ]);
 
             // Buka Koneksi sebagai Admin dulu untuk mencari user
