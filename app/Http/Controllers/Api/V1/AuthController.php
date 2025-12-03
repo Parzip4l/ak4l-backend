@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller; // Sesuaikan namespace
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use Tymon\JWTAuth\Facades\JWTAuth;
+use LdapRecord\Connection;
 use LdapRecord\Container;
 use LdapRecord\Models\ActiveDirectory\User as LdapUser;
 
@@ -39,125 +39,111 @@ class AuthController extends Controller
 
         $email = $request->email;
         $password = $request->password;
-        $upn = $email;
 
         /*
         |--------------------------------------------------------------------------
-        | 1. Coba login via LOCAL DATABASE (JWT)
+        | 1. Coba login via LOCAL DATABASE (Cek user lokal dulu biar cepat)
         |--------------------------------------------------------------------------
         */
         if ($token = auth('api')->attempt(['email' => $email, 'password' => $password])) {
-            return response()->json([
-                'message' => 'Login lokal berhasil',
-                'token'   => $token,
-                'type'    => 'bearer',
-                'expires_in' => auth('api')->factory()->getTTL() * 60,
-                'user'    => auth('api')->user(),
-            ]);
+            return $this->respondWithToken($token, auth('api')->user(), 'Login lokal berhasil');
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Jika gagal → coba login via LDAP
+        | 2. Jika gagal lokal → Coba login via LDAP
         |--------------------------------------------------------------------------
         */
-
         try {
-            $connection = new \LdapRecord\Connection([
-                
-                'hosts'    => config('ldap.connections.default.hosts'), 
-                
+            // SETUP KONEKSI (Gunakan config(), JANGAN env())
+            $connection = new Connection([
+                'hosts'    => config('ldap.connections.default.hosts'),
                 'base_dn'  => config('ldap.connections.default.base_dn'),
-                
-                'username' => null,
-                'password' => null,
+                'username' => config('ldap.connections.default.username'), // User Admin utk searching
+                'password' => config('ldap.connections.default.password'), // Pass Admin utk searching
                 'port'     => config('ldap.connections.default.port', 389),
-                'use_ssl'  => config('ldap.connections.default.use_ssl', false),
-                'use_tls'  => config('ldap.connections.default.use_tls', false),
             ]);
 
-            // Connect ke LDAP server
+            // Buka Koneksi sebagai Admin dulu untuk mencari user
             $connection->connect();
 
-            // LDAP Login (Bind)
-            $connection->auth()->bind($upn, $password);
+            // CARI USER DI LDAP (Pakai Query Builder LdapRecord, bukan ldap_search manual)
+            // Kita cari berdasarkan 'mail' atau 'userPrincipalName'
+            $ldapUser = $connection->query()
+                ->where('mail', '=', $email)
+                ->orWhere('userPrincipalName', '=', $email)
+                ->first();
 
-            // Jika bind berhasil → ambil atribut user dari LDAP
-            $rawLdap = $connection->getLdapConnection()->getConnection();
-            $filter = "(userPrincipalName={$upn})";
-            $attributes = ['displayName', 'mail', 'department', 'company', 'title'];
-
-            $search = @ldap_search($rawLdap, env('LDAP_BASE_DN'), $filter, $attributes);
-            $entries = ldap_get_entries($rawLdap, $search);
-
-            if ($entries['count'] === 0) {
+            if (! $ldapUser) {
                 return response()->json(['message' => 'User tidak ditemukan di LDAP'], 404);
             }
 
-            $entry = $entries[0];
+            // VERIFIKASI PASSWORD USER (Auth Attempt)
+            // Ini akan mencoba login menggunakan DN user yang ketemu tadi & password inputan
+            if ($connection->auth()->attempt($ldapUser->getDn(), $password)) {
+                
+                /*
+                |--------------------------------------------------------------------------
+                | 3. Sync user LDAP ke Database LOCAL
+                |--------------------------------------------------------------------------
+                */
+                
+                // Ambil atribut dengan aman
+                $displayName = $ldapUser->getFirstAttribute('displayname') ?? $email;
+                $department  = $ldapUser->getFirstAttribute('department') ?? '-';
+                
+                $user = User::firstOrCreate(
+                    ['email' => $email],
+                    [
+                        'name'       => $displayName,
+                        'username'   => explode('@', $email)[0],
+                        'department' => $department,
+                        'password'   => bcrypt(str()->random(16)), // Password acak di DB lokal
+                        'phone'      => '0',
+                    ]
+                );
 
-            /*
-            |--------------------------------------------------------------------------
-            | 3. Sync user LDAP ke Database LOCAL
-            |--------------------------------------------------------------------------
-            */
-            $user = User::firstOrCreate(
-                ['email' => $email],
-                [
-                    'name'       => $entry['displayname'][0] ?? $email,
-                    'username'   => explode('@', $email)[0],
-                    'department' => $entry['department'][0] ?? null,
-                    'password'   => bcrypt(str()->random(16)), // random karena auth via LDAP
-                    'phone'      => '0',
-                ]
-            );
+                // Update data jika user sudah ada (opsional, biar data selalu fresh)
+                $user->update([
+                    'name'       => $displayName,
+                    'department' => $department,
+                ]);
 
-            /*
-            |--------------------------------------------------------------------------
-            | 4. Login user melalui JWT
-            |--------------------------------------------------------------------------
-            */
-            if (! $token = auth('api')->login($user)) {
-                return response()->json([
-                    'message' => 'Gagal generate token JWT',
-                ], 500);
-            }
-
-            return response()->json([
-                'message' => 'Login LDAP berhasil',
-                'token'   => $token,
-                'type'    => 'bearer',
-                'expires_in' => auth('api')->factory()->getTTL() * 60,
-                'user'    => $user,
-            ]);
-
-        } catch (\LdapRecord\Auth\BindException $e) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | 5. Jika LDAP gagal → fallback ke database lokal (lagi)
-            |--------------------------------------------------------------------------
-            */
-            $user = User::where('email', $email)->first();
-
-            if ($user && Hash::check($password, $user->password)) {
+                /*
+                |--------------------------------------------------------------------------
+                | 4. Generate Token JWT
+                |--------------------------------------------------------------------------
+                */
                 if (! $token = auth('api')->login($user)) {
-                    return response()->json(['message' => 'Token gagal dibuat'], 500);
+                    return response()->json(['message' => 'Gagal generate token JWT'], 500);
                 }
 
-                return response()->json([
-                    'message' => 'Login lokal berhasil',
-                    'token'   => $token,
-                    'type'    => 'bearer',
-                    'expires_in' => auth('api')->factory()->getTTL() * 60,
-                    'user'    => $user,
-                ]);
+                return $this->respondWithToken($token, $user, 'Login LDAP berhasil');
+            } else {
+                // Password LDAP Salah
+                return response()->json(['message' => 'Password salah (LDAP)'], 401);
             }
 
-            return response()->json([
-                'message' => 'Email atau password salah (LDAP & lokal gagal)',
-            ], 401);
+        } catch (\LdapRecord\Auth\BindException $e) {
+            // Error koneksi ke server LDAP (Admin credentials salah atau server down)
+            return response()->json(['message' => 'Gagal koneksi LDAP: ' . $e->getMessage()], 500);
+            
+        } catch (\Exception $e) {
+            // Error umum lainnya
+            return response()->json(['message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
+    }
+
+    // Helper function biar rapi
+    protected function respondWithToken($token, $user, $message)
+    {
+        return response()->json([
+            'message' => $message,
+            'token'   => $token,
+            'type'    => 'bearer',
+            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'user'    => $user,
+        ]);
     }
 
     public function logout()
