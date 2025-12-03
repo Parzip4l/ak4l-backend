@@ -64,13 +64,16 @@ class AuthController extends Controller
 
         try {
             $connection = new \LdapRecord\Connection([
-                'hosts'    => [env('LDAP_HOST')],
-                'base_dn'  => env('LDAP_BASE_DN'),
+                
+                'hosts'    => config('ldap.connections.default.hosts'), 
+                
+                'base_dn'  => config('ldap.connections.default.base_dn'),
+                
                 'username' => null,
                 'password' => null,
-                'port'     => env('LDAP_PORT', 389),
-                'use_ssl'  => env('LDAP_SSL', false),
-                'use_tls'  => env('LDAP_TLS', false),
+                'port'     => config('ldap.connections.default.port', 389),
+                'use_ssl'  => config('ldap.connections.default.use_ssl', false),
+                'use_tls'  => config('ldap.connections.default.use_tls', false),
             ]);
 
             // Connect ke LDAP server
