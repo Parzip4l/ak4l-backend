@@ -39,20 +39,20 @@ class AuthController extends Controller
 
         $email = $request->email;
         $password = $request->password;
-        $upn = $email; // untuk login LDAP via UPN (misal: user@domain.local)
+        $upn = $email; // untuk bind LDAP (user@domain.local)
 
         /*
         |--------------------------------------------------------------------------
-        | 1. Coba login via LOCAL DATABASE (JWT)
+        | 1. Login via Database Lokal (JWT)
         |--------------------------------------------------------------------------
         */
         if ($token = auth('api')->attempt(['email' => $email, 'password' => $password])) {
             return response()->json([
-                'message' => 'Login lokal berhasil',
-                'token'   => $token,
-                'type'    => 'bearer',
+                'message'    => 'Login lokal berhasil',
+                'token'      => $token,
+                'type'       => 'bearer',
                 'expires_in' => auth('api')->factory()->getTTL() * 60,
-                'user'    => auth('api')->user(),
+                'user'       => auth('api')->user(),
             ]);
         }
 
@@ -61,7 +61,6 @@ class AuthController extends Controller
         | 2. Jika gagal → coba login via LDAP
         |--------------------------------------------------------------------------
         */
-
         try {
             $connection = new \LdapRecord\Connection([
                 'hosts'    => config('ldap.connections.default.hosts'),
@@ -76,16 +75,16 @@ class AuthController extends Controller
             // Connect ke LDAP server
             $connection->connect();
 
-            // LDAP Login (Bind)
+            // Bind (Authenticate)
             $connection->auth()->bind($upn, $password);
 
-            // Jika bind berhasil → ambil atribut user dari LDAP
+            // Ambil atribut user dari LDAP
             $rawLdap = $connection->getLdapConnection()->getConnection();
             $filter = "(userPrincipalName={$upn})";
             $attributes = ['displayName', 'mail', 'department', 'company', 'title'];
 
-            $search = @ldap_search($rawLdap, env('LDAP_BASE_DN'), $filter, $attributes);
-            $entries = ldap_get_entries($rawLdap, $search);
+            $search   = @ldap_search($rawLdap, env('LDAP_BASE_DN'), $filter, $attributes);
+            $entries  = ldap_get_entries($rawLdap, $search);
 
             if ($entries['count'] === 0) {
                 return response()->json(['message' => 'User tidak ditemukan di LDAP'], 404);
@@ -95,7 +94,7 @@ class AuthController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | 3. Sync user LDAP ke Database LOCAL
+            | 3. Sync user LDAP ke Database Lokal
             |--------------------------------------------------------------------------
             */
             $user = User::firstOrCreate(
@@ -111,7 +110,16 @@ class AuthController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | 4. Login user melalui JWT
+            | 3A. Auto Assign Role "viewer" untuk user yang baru dibuat
+            |--------------------------------------------------------------------------
+            */
+            if ($user->wasRecentlyCreated) {
+                $user->assignRole('viewer');
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Login user ke sistem lokal (JWT)
             |--------------------------------------------------------------------------
             */
             if (! $token = auth('api')->login($user)) {
@@ -121,18 +129,18 @@ class AuthController extends Controller
             }
 
             return response()->json([
-                'message' => 'Login LDAP berhasil',
-                'token'   => $token,
-                'type'    => 'bearer',
+                'message'    => 'Login LDAP berhasil',
+                'token'      => $token,
+                'type'       => 'bearer',
                 'expires_in' => auth('api')->factory()->getTTL() * 60,
-                'user'    => $user,
+                'user'       => $user,
             ]);
 
         } catch (\LdapRecord\Auth\BindException $e) {
 
             /*
             |--------------------------------------------------------------------------
-            | 5. Jika LDAP gagal → fallback ke database lokal (lagi)
+            | 5. Jika LDAP gagal → fallback lagi ke database lokal
             |--------------------------------------------------------------------------
             */
             $user = User::where('email', $email)->first();
@@ -143,11 +151,11 @@ class AuthController extends Controller
                 }
 
                 return response()->json([
-                    'message' => 'Login lokal berhasil',
-                    'token'   => $token,
-                    'type'    => 'bearer',
+                    'message'    => 'Login lokal berhasil',
+                    'token'      => $token,
+                    'type'       => 'bearer',
                     'expires_in' => auth('api')->factory()->getTTL() * 60,
-                    'user'    => $user,
+                    'user'       => $user,
                 ]);
             }
 
@@ -156,6 +164,7 @@ class AuthController extends Controller
             ], 401);
         }
     }
+
 
     public function logout()
     {
