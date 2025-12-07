@@ -47,6 +47,11 @@ Route::prefix('v1')->group(function () {
             Route::post('roles/{roleId}/assign-permissions', [RolePermissionController::class, 'assignPermissionToRole']);
             Route::post('roles/{roleId}/revoke-permissions', [RolePermissionController::class, 'revokePermissionFromRole']);
 
+            // User Role and Permission Management
+            Route::get('/users', [AuthController::class, 'indexUser']);
+            Route::get('/users/{id}', [AuthController::class, 'showUser']);
+
+
         Route::post('users/{id}/roles/assign', [UserRoleController::class, 'assignRole']);
         Route::post('users/{id}/roles/revoke', [UserRoleController::class, 'revokeRole']);
         Route::post('/users/{user}/assign-permission', [UserRoleController::class, 'assignPermission']);
@@ -292,6 +297,7 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:security_metrics.delete');
                 
         });
+        
 
         // Job Position
         Route::prefix('job-positions')->group(function () {

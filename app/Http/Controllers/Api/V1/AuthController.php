@@ -180,4 +180,53 @@ class AuthController extends Controller
             'permissions' => auth('api')->user()->getAllPermissions()->pluck('name'),
         ]);
     }
+
+    public function indexUser(Request $request)
+    {
+        $perPage = $request->get('per_page', 10);
+
+        $users = User::with('roles:id,name') // <-- ambil roles
+            ->select('id', 'name', 'email', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        // Format roles menjadi array name saja
+        $users->getCollection()->transform(function ($user) {
+            $user->roles = $user->roles->pluck('name');  
+            return $user;
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'List data user',
+            'data' => $users
+        ], 200);
+    }
+
+
+    // GET /users/{id} - ambil detail user
+    public function showUser($id)
+    {
+        $user = User::with('roles:id,name')
+            ->select('id', 'name', 'email', 'created_at')
+            ->find($id);
+
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User tidak ditemukan'
+            ], 404);
+        }
+
+        // Format roles menjadi array string
+        $user->roles = $user->roles->pluck('name');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Detail user',
+            'data' => $user
+        ], 200);
+    }
+
+
 }

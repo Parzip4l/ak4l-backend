@@ -14,8 +14,16 @@ class RolePermissionController extends Controller
     // ======================
     public function roles()
     {
-        return response()->json(Role::all(['id', 'name', 'guard_name', 'created_at']));
+        $roles = Role::with('permissions:id,name')
+            ->get(['id', 'name', 'guard_name', 'created_at']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'List data role beserta permissions',
+            'data' => $roles
+        ], 200);
     }
+
 
     public function storeRole(Request $request)
     {
