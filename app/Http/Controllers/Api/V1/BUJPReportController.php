@@ -54,7 +54,7 @@ class BUJPReportController extends Controller
             ]);
 
             if ($request->hasFile('file')) {
-                $data['file_path'] = $request->file('file')->store('bujp/reports');
+                $data['file_path'] = $request->file('file')->store('bujp/reports','public');
             }
 
             $data['submitted_by'] = Auth::id();
@@ -103,7 +103,6 @@ class BUJPReportController extends Controller
     public function download(BujpReport $bujpReport)
     {
         try {
-
             if (!$bujpReport->file_path || !Storage::exists($bujpReport->file_path)) {
                 return response()->json(['error' => 'File tidak ditemukan'], 404);
             }

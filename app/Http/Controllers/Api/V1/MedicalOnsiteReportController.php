@@ -281,6 +281,19 @@ class MedicalOnsiteReportController extends Controller
         }
     }
 
+    public function download(MedicalOnsiteReport $medicalonsitereport)
+    {
+        try {
+            if (!$medicalonsitereport->file_path || !Storage::exists($medicalonsitereport->file_path)) {
+                return response()->json(['error' => 'File tidak ditemukan'], 404);
+            }
+
+            return Storage::download($medicalonsitereport->file_path);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function approvalLogs(MedicalOnsiteReport $report)
     {
         try {

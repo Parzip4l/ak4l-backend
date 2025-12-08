@@ -166,6 +166,8 @@ Route::prefix('v1')->group(function () {
 
                     Route::post('/{report}/approve', [MedicalOnsiteReportController::class, 'approve'])
                         ->middleware('permission:medical_reports.approve');
+
+                    Route::get('{medicalonsitereport}/download', [MedicalOnsiteReportController::class, 'download'])->middleware('permission:medical_reports.read');
                 });
 
 
