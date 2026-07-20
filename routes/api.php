@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\RikesNapzaController;
 use App\Http\Controllers\Api\V1\RikesPradinasController;
 use App\Http\Controllers\Api\V1\MedicalOnsiteReportController;
 use App\Http\Controllers\Api\V1\BUJPReportController;
+use App\Http\Controllers\Api\V1\EptwPermitController;
 use App\Http\Controllers\Api\V1\Security\{
     SkillController,
     PersonnelController,
@@ -29,6 +30,9 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+
+        Route::post('eptw/permit/check', [EptwPermitController::class, 'check'])
+            ->middleware('permission:security_metrics.read');
 
         // Permission and Roles
             // Role
